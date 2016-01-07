@@ -6,6 +6,8 @@ $output = https_request($url);
 $jsoninfo = json_decode($output, true);
 
 $access_token = $jsoninfo["TAyfoPYxUq9J_8pgXsVV1xMz3pcaeSSwon8QHF9pWYkgSBmK1rAfqwsHEik_nhSvRV4Ak0uTWxVOH9pisIeHPBlDVCqKVIQBersD7F5f-m8DMVgACAYHQ"];
+
+
 $jsonmenu = '';
 curl --insecure -X POST -v https://api.jpush.cn/v3/push -H "Content-Type: application/json" -u "ad2add0d7bafaab683ca3b16:2009611fff8213ed1bd0c3a6 " -d '{"platform":"all","audience":"all","notification":{"alert":"Hi,JPush !","android":{"extras":{"android-key1":"android-value1"}},"ios":{"sound":"sound.caf","badge":"+1","extras":{"ios-key1":"ios-value1"}}}}'
 
