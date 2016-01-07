@@ -45,6 +45,7 @@ class wechatCallbackapiTest
 				$latitude = $postObj->Location_X;//获取纬度
 				$longitude = $postObj->Location_Y;//获取经度
 				$label = $postObj->Label;//获取地理信息
+				$voice = $postObj->Recognition;//为语音识别结果
                 $keyword = trim($postObj->Content);
                 $time = time();
                 $textTpl = "<xml>
@@ -123,6 +124,40 @@ class wechatCallbackapiTest
 						//$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 					switch($type)
 					{
+						case "voice":
+							//$contentStr=$voice;
+							$len=mb_strlen($voice,'utf-8');
+							if($len>3){
+								$navWord=mb_substr($voice, 0, 3,'utf-8');
+								if($navWord=="导航到"){
+									$len=mb_strlen($voice,'utf-8');
+									$navWord=mb_substr($voice, 3,$len-3,'utf-8');
+									$br = '<br/>';
+									$app_key = 'ad2add0d7bafaab683ca3b16';
+									$master_secret = '2009611fff8213ed1bd0c3a6';
+									// 初始化
+									$client = new JPush($app_key, $master_secret);
+									//$label='999899';
+									// 简单推送示例
+									$result = $client->push()
+										->setPlatform('all')
+										->addAllAudience()
+										->setNotificationAlert("$navWord")
+										->send();
+
+									echo 'Result=' . json_encode($result) . $br;
+									$contentStr="位置已发送,如果长时间未收到,可能是网络原因,请重试!";
+								}else{
+									$contentStr="您的语音有误,请重新输入";
+								}
+							}else{
+								$contentStr="您的语音有误,请重新输入";
+							}
+							
+							$msgType = "text";
+							$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr.$len);
+
+						break;
 						case "link":
 							$contentStr="功能完善中";
 							$msgType = "text";
@@ -169,7 +204,6 @@ class wechatCallbackapiTest
 								
 								// 初始化
 								$client = new JPush($app_key, $master_secret);
-								//$label='999899';
 								// 简单推送示例
 								$result = $client->push()
 									->setPlatform('all')
@@ -210,27 +244,7 @@ class wechatCallbackapiTest
 										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 										break;
 									case "navigation":
-									//图文链接到百度地图
-									/*
-										$newTpl = 	"<xml>
-										<ToUserName><![CDATA[%s]]></ToUserName>
-										<FromUserName><![CDATA[%s]]></FromUserName>
-										<CreateTime>%s</CreateTime>
-										<MsgType><![CDATA[news]]></MsgType>
-										<ArticleCount>1</ArticleCount>
-										<Articles>
-										<item>
-										<Title><![CDATA[地图链接]]></Title>
-										<Description><![CDATA[测试功能]]></Description>
-										<PicUrl><![CDATA[]]></PicUrl>
-										<Url><![CDATA[%s]]></Url>
-										</item>
-										<FuncFlag>0</FuncFlag>
-										</Articles>
-										</xml>";  
-										$url="http://map.baidu.com/";
-										$resultStr = sprintf($newTpl, $fromUsername, $toUsername, $time, $url);
-										*/
+
 										$contentStr = '请发送要导航的位置信息。或者发送"导航到**",例如:导航到深圳大学';
 										$msgType = "text";
 										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
@@ -247,19 +261,7 @@ class wechatCallbackapiTest
 										break;
 									break;
 									case "devicemanagement":
-									/*
-										$weatherurl="http://yijianchelian.sinaapp.com/weather.xml";
-										$weatherstr=file_get_contents($weatherurl);//读取文件
-										$weatherapi=simplexml_load_string($weatherstr);//xml解析
-										$placeobj=$weatherapi->currentCity;//逐级解析 城市
-										$weather_data_obj=$weatherapi->weather_data;//逐级解析 实时天气
-										$weatherobj=$weatherapi->weather;//逐级解析 天气
-										$windobj=$weatherapi->wind;//逐级解析 天气
-										$contentStr="城市{$placeobj} 天气{$weather_data_obj} {$weatherobj} {$windobj}";
-										$msgType = "text";
-										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-										
-										*/
+
 										$contentStr="功能完善中";
 										$msgType = "text";
 										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
@@ -383,12 +385,7 @@ class wechatCallbackapiTest
 								$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 							}
 							else if($keyword=="5"){
-								
-								
-								//$jpush=new ApipostAction();
-								//$jpush->send('this title','this mesage');
-								//$contentStr="功能完善中";
-								//$resultStr = sprintf($newTpl, $fromUsername, $toUsername, $time );	
+
 							}
 							else if($keyword=="6"){
 								$weatherurl="http://api.map.baidu.com/telematics/v3/weather?location={$keyword}&output=xml&ak=m9fCLsMnPDsla4lTuKGNsw6c";
