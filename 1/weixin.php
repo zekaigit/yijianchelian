@@ -215,9 +215,6 @@ class wechatCallbackapiTest
 							</xml> ";
 						
 				
-				$mmc=memcache_init();
-				$ret_mmc =$mmc->connect();            //使用本应用Memcache
-				
 			
 				// 连主库
 				$link=mysql_connect(SAE_MYSQL_HOST_M.':'.SAE_MYSQL_PORT,SAE_MYSQL_USER,SAE_MYSQL_PASS);
@@ -334,7 +331,6 @@ class wechatCallbackapiTest
 										$description="访问易见联网站";
 										$picUrl="http://yijianchelian.sinaapp.com/source/view.jpg";
 										$url="yijianchelian.sinaapp.com/html/about.html";
-										
 										$resultStr = sprintf($newTpl, $fromUsername, $toUsername, $time,$title,$description,$picUrl,$url);	
 										break;
 									case "mycarplace":
@@ -370,13 +366,12 @@ class wechatCallbackapiTest
 										$resultStr = sprintf($newTpl, $fromUsername, $toUsername, $time,$title,$description,$picUrl,$url);	
 										break;
 									case "menu_register":
+										$sql = "insert into devRegister(time,qq) values(now(),'{$fromUsername}')";//加入注册表
+										$query=mysql_query( $sql );//执行sql语句
+										if(!$query){
+											die("insert into Sheet1: " . mysql_error());
+										}
 										$contentStr="请输入你的设备号";
-										memcache_set($mmc,$fromUsername."key","qq",$flag=0,$expire=60);//设置缓存值
-										/*
-										设置'var_key'对应值，使用即时压缩
-										失效时间为50秒
-										*/
-									//$mmc->set($fromUsername."key","qq",MEMCACHE_COMPRESSED,60);
 										$msgType = "text";
 										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);	
 										break;
@@ -475,7 +470,43 @@ class wechatCallbackapiTest
 						case "text":
 							//$navWord = substr($keyword,0,3);
 							$navWord=mb_substr($keyword, 0, 3,'utf-8');
-							if($navWord=="导航到"){
+							$sql0 = "SELECT * FROM devRegister WHERE qq='{$fromUsername}' ";//判断是否要绑定
+							$query0=mysql_query( $sql0 );//执行sql语句
+							if(!$query0){
+								die("SELECT * FROM devRegister: " . mysql_error());
+							}
+							$rs0=mysql_fetch_array($query0);
+							$USER=$rs0['qq'];
+							if($USER==$fromUsername){//绑定操作
+								$sql = "SELECT * FROM devConnect WHERE devID='{$keyword}' ";//判断有无此设备
+								$query=mysql_query( $sql );//执行sql语句
+								if(!$query){
+									die("SELECT * FROM devConnect: " . mysql_error());
+								}
+								$rs=mysql_fetch_array($query);
+								$USER=$rs['devID'];
+								if($USER==$keyword){	//有此设备
+									 $sql = "update devConnect set qq='{$fromUsername}' where devID={$USER}";//绑定设备
+									$query=mysql_query( $sql );//执行sql语句
+									if(!$query){
+										die("update devConnect: " . mysql_error()); 
+										$contentStr = "设备绑定失败,请重新绑定";
+									}else{
+										$contentStr = "设备绑定成功";
+									}
+									$msgType = "text";
+									$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+								}else{
+									$contentStr="设备绑定失败,请重新绑定";
+									$msgType = "text";
+									$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+								}
+								$sql0 = "delete FROM devRegister WHERE qq='{$fromUsername}' ";//判断是否要绑定
+								$query0=mysql_query( $sql0 );//执行sql语句
+								if(!$query0){
+									die("delete * FROM devRegister: " . mysql_error());
+								}
+							}else if($navWord=="导航到"){
 								$contentStr=$this->dealVoice($keyword);
 								$msgType = "text";
 								$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
@@ -484,64 +515,16 @@ class wechatCallbackapiTest
 								$contentStr=$this->dealWeather();
 								$msgType = "text";
 								$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-							}
-							else{
-									
-								$struser= memcache_get($mmc,$fromUsername."key");//获取缓存值
-								if($struser=="qq"){
-								$sql = "SELECT * FROM devConnect WHERE devID='{$keyword}' ";//判断有无此设备
-								$query=mysql_query( $sql );//执行sql语句
-								if(!$query){
-									die("SELECT * FROM devConnect: " . mysql_error());
-								}
-								$rs=mysql_fetch_array($query);
-								$USER=$rs['devID'];
-								
-								$dev=$rs['qq'];
-								//	if(!$dev){
-										if($USER==$keyword){	//有此设备
-											 $sql = "update devConnect set qq='{$fromUsername}' where devID={$USER}";//绑定设备
-											$query=mysql_query( $sql );//执行sql语句
-											if(!$query){
-												die("update devConnect: " . mysql_error()); 
-												$contentStr = "设备绑定失败,请重新注册";
-											}else{
-												$contentStr = "设备绑定成功";
-											}
-											$msgType = "text";
-											$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-											memcache_delete($mmc,$fromUsername."key", 0);//删除缓存
-										}else{
-											$contentStr=$USER."绑定失败!!!!".$keyword;
-											$msgType = "text";
-											$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-											memcache_delete($mmc,$fromUsername."key", 0);//删除缓存
-										}
-								//	}else{
-									/*	$contentStr="此设备已绑定,请绑定其他设备";
-										$msgType = "text";
-										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-										memcache_delete($mmc,$fromUsername."key", 0);//删除缓存
-									*/
-								//	}
-								}else{				
-									////打开为baidu fanyi
-									$contentStr = $this->baiduFanyi($keyword);
-									$msgType = "text";
-									$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-								}
-							}
-								
+							}else{
+								$contentStr=$this->baiduFanyi($keyword);
+								$msgType = "text";
+								$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+							}			
 						break;
 						default:
 							if(!empty( $keyword ))
 							{
-								//$msgType = "text";
-							
-								
 
-								//$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-								//echo $resultStr;
 							}else{
 								echo "Input something...";
 							};
@@ -552,114 +535,98 @@ class wechatCallbackapiTest
 					//$sql = "insert into Sheet1(BM) values('{$fromUsername}')";
 					//$query=mysql_query( $sql );//执行sql语句
 					//die("insert into Sheet1: " . mysql_error());
-					if(!$ret_mmc){
-						$contentStr = "memcache 错误 ";
-						$msgType = "text";
-						$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-					}else{
-						
-				
-						switch($type){
-							case "event":
-								$contentStr = "event0\n";
-								if($customevent=="subscribe"){
-									$contentStr = "感谢你的关注\n请绑定设备".$postObj->EventKey;
-									if($postObj->EventKey){//绑定设备
+
+					switch($type){
+						case "event":
+							$contentStr = "event0\n";
+							if($customevent=="subscribe"){
+								$contentStr = "感谢你的关注\n请绑定设备".$postObj->EventKey;
+								if($postObj->EventKey){//绑定设备
+									$rest = substr($postObj->EventKey, 8, strlen($postObj->EventKey)-8);
+									$sql = "SELECT * FROM devConnect WHERE user='{$rest}' ";//判断有无此设备
+									$query=mysql_query( $sql );//执行sql语句
+									if(!$query){
+										die("insert into Sheet1: " . mysql_error());
+									}
+									$rs=mysql_fetch_array($query);
+									$USER=$rs['user'];
+									if($USER==$rest){	//有此设备
+										 $sql = "update devConnect set qq='{$fromUsername}' where user={$USER}";//绑定设备
+										$query=mysql_query( $sql );//执行sql语句
+										$contentStr = "感谢你的关注\n设备绑定成功";
+										if(!$query){
+											die("update devConnect: " . mysql_error()); 
+											$contentStr = "感谢你的关注\n设备绑定失败,请重新注册";
+										}
+										$msgType = "text";
+										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 										
-										$rest = substr($postObj->EventKey, 8, strlen($postObj->EventKey)-8);
+									}else{
+										$contentStr="感谢你的关注\n绑定失败,请重新注册";
+										$msgType = "text";
+										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 										
-										$sql = "SELECT * FROM devConnect WHERE user='{$rest}' ";//判断有无此设备
+									}
+								}
+								$msgType = "text";
+								$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+							}else if($customevent=="CLICK"){
+								//$contentStr = "event";
+								switch($postObj->EventKey)
+								{
+									case "menu_register":
+										$sql = "insert into devRegister(time,qq) values(now(),'{$fromUsername}')";//判断有无此设备
 										$query=mysql_query( $sql );//执行sql语句
 										if(!$query){
 											die("insert into Sheet1: " . mysql_error());
 										}
-										$rs=mysql_fetch_array($query);
-										$USER=$rs['user'];
-										
-									//	$dev=$rs['qq'];
-										//if(!$dev){
-											if($USER==$rest){	//有此设备
-												 $sql = "update devConnect set qq='{$fromUsername}' where user={$USER}";//绑定设备
-												$query=mysql_query( $sql );//执行sql语句
-												$contentStr = "感谢你的关注\n设备绑定成功";
-												if(!$query){
-													die("update devConnect: " . mysql_error()); 
-													$contentStr = "感谢你的关注\n设备绑定失败,请重新注册";
-												}
-												$msgType = "text";
-												$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-												
-											}else{
-												$contentStr="感谢你的关注\n绑定失败,请重新注册";
-												$msgType = "text";
-												$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-												
-											}
-									/*	}else{
-											$contentStr="感谢你的关注\n此设备已绑定,请绑定其他设备";
-											$msgType = "text";
-											$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-											
-										}*/
-										
-										
+										$contentStr="请输入你的设备号";
+										$msgType = "text";
+										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);	
+										break;
+									default:
+										$contentStr="******"."欢迎新朋友\n请绑定设备";
+									
+										$msgType = "text";
+										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);	
+										break;
+								}
+							}else if($customevent=="SCAN"){
+									//$postObj->EventKey = substr($postObj->EventKey, 8, strlen($postObj->EventKey)-8);
+									$sql = "SELECT * FROM devConnect WHERE user='{$postObj->EventKey}' ";//判断有无此设备
+									$query=mysql_query( $sql );//执行sql语句
+									if(!$query){
+										die("insert into Sheet1: " . mysql_error());
 									}
-									$msgType = "text";
-									$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-								}else if($customevent=="CLICK"){
-									//$contentStr = "event";
-									switch($postObj->EventKey)
-									{
-										case "menu_register":
-											$contentStr="请输入你的设备号";
-											memcache_set($mmc,$fromUsername."key","qq",$flag=0,$expire=60);//设置缓存值
-											/*
-											设置'var_key'对应值，使用即时压缩
-											失效时间为50秒
-											*/
-										//$mmc->set($fromUsername."key","qq",MEMCACHE_COMPRESSED,60);
-											$msgType = "text";
-											$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);	
-											break;
-										default:
-											$contentStr="******"."欢迎新朋友\n请绑定设备";
-										
-											$msgType = "text";
-											$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);	
-											break;
-									}
-								}else if($customevent=="SCAN"){
-										//$postObj->EventKey = substr($postObj->EventKey, 8, strlen($postObj->EventKey)-8);
-										$sql = "SELECT * FROM devConnect WHERE user='{$postObj->EventKey}' ";//判断有无此设备
+									$rs=mysql_fetch_array($query);
+									$USER=$rs['user'];//设备号
+									if($USER==($postObj->EventKey)){	//有此设备
+										$sql = "update devConnect set qq='{$fromUsername}' where user={$postObj->EventKey}";//绑定设备
 										$query=mysql_query( $sql );//执行sql语句
+										$contentStr = "设备绑定成功".$postObj->EventKey;
 										if(!$query){
-											die("insert into Sheet1: " . mysql_error());
+											die("update devConnect: " . mysql_error()); 
+											$contentStr = "设备绑定失败,请重新绑定";
 										}
-										$rs=mysql_fetch_array($query);
-										$USER=$rs['user'];//设备号
-										if($USER==($postObj->EventKey)){	//有此设备
-											$sql = "update devConnect set qq='{$fromUsername}' where user={$postObj->EventKey}";//绑定设备
-											$query=mysql_query( $sql );//执行sql语句
-											$contentStr = "设备绑定成功".$postObj->EventKey;
-											if(!$query){
-												die("update devConnect: " . mysql_error()); 
-												$contentStr = "设备绑定失败,请重新绑定";
-											}
-											$msgType = "text";
-											$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-											
-										}else{
-											$contentStr="绑定失败,请重新绑定";
-											$msgType = "text";
-											$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-											
-										}
+										$msgType = "text";
+										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+										
+									}else{
+										$contentStr="绑定失败,请重新绑定";
+										$msgType = "text";
+										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 									}
-							break;
-							default :
-							
-								$struser= memcache_get($mmc,$fromUsername."key");//获取缓存值
-								if($struser=="qq"){
+								}
+						break;
+						default :
+							$sql0 = "SELECT * FROM devRegister WHERE qq='{$fromUsername}' ";//判断是否要绑定
+							$query0=mysql_query( $sql0 );//执行sql语句
+							if(!$query0){
+								die("SELECT * FROM devRegister: " . mysql_error());
+							}
+							$rs0=mysql_fetch_array($query0);
+							$USER=$rs0['qq'];
+							if($USER==$fromUsername){//绑定操作
 								$sql = "SELECT * FROM devConnect WHERE devID='{$keyword}' ";//判断有无此设备
 								$query=mysql_query( $sql );//执行sql语句
 								if(!$query){
@@ -667,45 +634,35 @@ class wechatCallbackapiTest
 								}
 								$rs=mysql_fetch_array($query);
 								$USER=$rs['devID'];
-								
-								$dev=$rs['qq'];
-								//	if(!$dev){
-										if($USER==$keyword){	//有此设备
-											 $sql = "update devConnect set qq='{$fromUsername}' where devID={$USER}";//绑定设备
-											$query=mysql_query( $sql );//执行sql语句
-											if(!$query){
-												die("update devConnect: " . mysql_error()); 
-												$contentStr = "设备绑定失败,请重新注册";
-											}else{
-												$contentStr = "设备绑定成功";
-											}
-											$msgType = "text";
-											$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-											memcache_delete($mmc,$fromUsername."key", 0);//删除缓存
-										}else{
-											$contentStr=$USER."绑定失败!!!!".$keyword;
-											$msgType = "text";
-											$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-											memcache_delete($mmc,$fromUsername."key", 0);//删除缓存
-										}
-								/*	}else{
-										$contentStr="此设备已绑定,请绑定其他设备";
-										$msgType = "text";
-										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-										memcache_delete($mmc,$fromUsername."key", 0);//删除缓存
+								if($USER==$keyword){	//有此设备
+									 $sql = "update devConnect set qq='{$fromUsername}' where devID={$USER}";//绑定设备
+									$query=mysql_query( $sql );//执行sql语句
+									if(!$query){
+										die("update devConnect: " . mysql_error()); 
+										$contentStr = "设备绑定失败,请重新绑定";
+									}else{
+										$contentStr = "设备绑定成功";
 									}
-								*/	
-									
+									$msgType = "text";
+									$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 								}else{
-										$contentStr="test欢迎新朋友\n请绑定设备";
-										$msgType = "text";
-										$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);	
+									$contentStr="设备绑定失败,请重新绑定";
+									$msgType = "text";
+									$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 								}
-							break;
-						}
+								$sql0 = "delete FROM devRegister WHERE qq='{$fromUsername}' ";//判断是否要绑定
+								$query0=mysql_query( $sql0 );//执行sql语句
+								if(!$query0){
+									die("delete * FROM devRegister: " . mysql_error());
+								}
+							}else{
+								$contentStr="******"."欢迎新朋友\n请绑定设备";
+								$msgType = "text";
+								$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+							}
+						break;
 					}
-				//	$msgType = "text";
-					//$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+
 				}
 				$mysql->closeDb();	
 			}
