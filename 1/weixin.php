@@ -3,6 +3,11 @@
   * wechat php test
   */
 require_once("src/JPush/JPush.php");
+use sinacloud\sae\Storage as Storage;
+
+
+
+
 
 error_reporting(E_ALL^E_NOTICE);
 define("TOKEN", "weixin");
@@ -179,6 +184,7 @@ class wechatCallbackapiTest
 				$voice = $postObj->Recognition;//为语音识别结果
                 $keyword = trim($postObj->Content);
                 $time = time();
+				$picurl = $postObj->PicUrl;//图片链接
                 $textTpl = "<xml>
 							<ToUserName><![CDATA[%s]]></ToUserName>
 							<FromUserName><![CDATA[%s]]></FromUserName>
@@ -213,6 +219,16 @@ class wechatCallbackapiTest
 							<Event><![CDATA[VIEW]]></Event>
 							<EventKey><![CDATA[http://yijianchelian.sinaapp.com/about.html/]]></EventKey>
 							</xml> ";
+							
+				$picTP	=	"<xml>
+							 <ToUserName><![CDATA[%s]]></ToUserName>
+							 <FromUserName><![CDATA[%s]]></FromUserName>
+							 <CreateTime>%s</CreateTime>
+							 <MsgType><![CDATA[image]]></MsgType>
+							 <PicUrl><![CDATA[%s]]></PicUrl>
+							 <MediaId><![CDATA[media_id]]></MediaId>
+							 <MsgId>1234567890123456</MsgId>
+							 </xml>";
 						
 				
 			
@@ -313,9 +329,22 @@ class wechatCallbackapiTest
 							$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 						break;
 						case "image":
-							$contentStr = "你的图片很漂亮！";
+						
+						 $picTP	=	"<xml>
+						 <ToUserName><![CDATA[%s]]></ToUserName>
+						 <FromUserName><![CDATA[%s]]></FromUserName>
+						 <CreateTime>%s</CreateTime>
+						 <MsgType><![CDATA[image]]></MsgType>
+						 <PicUrl><![CDATA[%s]]></PicUrl>
+						 <MediaId><![CDATA[media_id]]></MediaId>
+						 <MsgId>1234567890123456</MsgId>
+						 </xml>";
+							 
+							
+							$contentStr=$picurl;
 							$msgType = "text";
-							$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+							//$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+							$resultStr = sprintf($picTP, $fromUsername, $toUsername, $time, $picurl);
 						break;
 						case "event":
 							if($customevent=="subscribe"){
@@ -386,7 +415,7 @@ class wechatCallbackapiTest
 										$title="轨迹回放";
 										$description="请点开击回放轨迹";
 										$picUrl="http://yijianchelian.sinaapp.com/source/jinyuanshawudasha.jpg";
-										$url="yijianchelian.sinaapp.com/html/ditu.html";
+										$url="yijianchelian.sinaapp.com/html/ditu.php";
 										$resultStr = sprintf($newTpl, $fromUsername, $toUsername, $time,$title,$description,$picUrl,$url);	
 										break;
 										
@@ -477,7 +506,32 @@ class wechatCallbackapiTest
 							}
 							$rs0=mysql_fetch_array($query0);
 							$USER=$rs0['qq'];
-							if($USER==$fromUsername){//绑定操作
+							if($navWord=="导航到"){
+								$contentStr=$this->dealVoice($keyword);//发送导航信息
+								
+								if($USER==$fromUsername){
+									$sql0 = "delete FROM devRegister WHERE qq='{$fromUsername}' ";//
+									$query0=mysql_query( $sql0 );//执行sql语句
+									if(!$query0){
+										die("delete * FROM devRegister: " . mysql_error());
+									}
+								}
+								$msgType = "text";
+								$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+							}
+							else if($keyword=="天气"){
+								$contentStr=$this->dealWeather();
+								
+								if($USER==$fromUsername){
+									$sql0 = "delete FROM devRegister WHERE qq='{$fromUsername}' ";//
+									$query0=mysql_query( $sql0 );//执行sql语句
+									if(!$query0){
+										die("delete * FROM devRegister: " . mysql_error());
+									}
+								}
+								$msgType = "text";
+								$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+							}else if($USER==$fromUsername){//绑定操作
 								$sql = "SELECT * FROM devConnect WHERE devID='{$keyword}' ";//判断有无此设备
 								$query=mysql_query( $sql );//执行sql语句
 								if(!$query){
@@ -501,20 +555,11 @@ class wechatCallbackapiTest
 									$msgType = "text";
 									$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 								}
-								$sql0 = "delete FROM devRegister WHERE qq='{$fromUsername}' ";//判断是否要绑定
+								$sql0 = "delete FROM devRegister WHERE qq='{$fromUsername}' ";//
 								$query0=mysql_query( $sql0 );//执行sql语句
 								if(!$query0){
 									die("delete * FROM devRegister: " . mysql_error());
 								}
-							}else if($navWord=="导航到"){
-								$contentStr=$this->dealVoice($keyword);
-								$msgType = "text";
-								$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
-							}
-							else if($keyword=="天气"){
-								$contentStr=$this->dealWeather();
-								$msgType = "text";
-								$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
 							}else{
 								$contentStr=$this->baiduFanyi($keyword);
 								$msgType = "text";

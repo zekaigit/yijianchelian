@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+
+
 <html>
 <head>
 <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<script type="text/javascript" src="LuShu.js">//0118
 <title>轨迹回放</title>
 <style type="text/css">
 html{height:100%}
@@ -14,14 +15,50 @@ body{height:100%;margin:0px;padding:0px}
 <script type="text/javascript" src="http://api.map.baidu.com/api?v=1.5&ak=m9fCLsMnPDsla4lTuKGNsw6c"></script>
 <script type="text/javascript">
 //获取所有点的坐标
-var points = [
+
+ /* var points = [
 new BMap.Point(114.00100, 22.550000), new BMap.Point(114.00130, 22.550000),
 new BMap.Point(114.00160, 22.550000), new BMap.Point(114.00200, 22.550000),
 new BMap.Point(114.00300, 22.550500), new BMap.Point(114.00400, 22.550000),
 new BMap.Point(114.00500, 22.550000), new BMap.Point(114.00505, 22.549800),
 new BMap.Point(114.00510, 22.550000), new BMap.Point(114.00515, 22.550000),
-new BMap.Point(114.00525, 22.550400),new BMap.Point(114.00537, 22.549500)
-];
+new BMap.Point(114.00525, 22.550400),new BMap.Point(114.00537, 22.549500)  
+
+]; */
+/* var points = [
+new BMap.Point(114.123123, 22.573631), new BMap.Point(113.942526, 22.539022),
+new BMap.Point(113.866217, 22.576768)  
+]; */
+<?php
+include("conn.php");
+	$sql0="select * from devTrack where devID='00003' ";
+	$query0=mysql_query($sql0);
+	$rs0=mysql_fetch_array($query0);
+	$ret_one=$rs0['one'];
+	$ret_two=$rs0['two'];
+	$ret_three=$rs0['three'];
+
+	$tujingdian="var points = [
+	new BMap.Point(".$ret_one."),
+	new BMap.Point(".$ret_two."),
+	new BMap.Point(".$ret_three."),
+	];"
+
+?>
+/* <?php 
+include("conn.php");
+$longitude=114.00100;
+	$tujingdian="var points = [
+		new BMap.Point(".$longitude.", 22.550000), new BMap.Point(114.00130, 22.550000),
+		new BMap.Point(114.00160, 22.550000), new BMap.Point(114.00200, 22.550000),
+		new BMap.Point(114.00300, 22.550500), new BMap.Point(114.00400, 22.550000),
+		new BMap.Point(114.00500, 22.550000), new BMap.Point(114.00505, 22.549800),
+		new BMap.Point(114.00510, 22.550000), new BMap.Point(114.00515, 22.550000),
+		new BMap.Point(114.00525, 22.550400), new BMap.Point(114.00537, 22.549500)
+		];";
+?>*/
+<?php echo $tujingdian?> 
+
 
 var map; //百度地图对象
 var car; //汽车图标
@@ -41,7 +78,7 @@ function init() {
 
 	//初始化地图,选取第一个点为起始点
 	map = new BMap.Map("container");
-	map.centerAndZoom(points[0],15);
+	map.centerAndZoom(points[0],<?php echo 12?>);
 	map.enableScrollWheelZoom();
 	map.addControl(new BMap.NavigationControl());
 	map.addControl(new BMap.ScaleControl());
@@ -49,7 +86,8 @@ function init() {
 
 	//通过DrivingRoute获取一条路线的point
 	var driving = new BMap.DrivingRoute(map);
-	driving.search(new BMap.Point(114.00100, 22.550000), new BMap.Point(113.95100, 22.550000));
+	//driving.search(new BMap.Point(114.00100, 22.550000), new BMap.Point(113.95100, 22.550000));
+	driving.search(new BMap.Point(114.123123, 22.573631), new BMap.Point(113.866217, 22.576768));
 	driving.setSearchCompleteCallback(function() {
 	//得到路线上的所有point
 	points = driving.getResults().getPlan(0).getRoute(0).getPath();
@@ -109,7 +147,7 @@ function reset() {
 	pauseBtn.disabled = true;
 
 	if(timer) {
-	window.clearTimeout(timer);
+		window.clearTimeout(timer);
 	}
 	index = 0;
 	car.setPosition(points[0]);
@@ -121,11 +159,8 @@ function reset() {
 <body onload="init();">
 <div id="controller" align="center">
 <input id="follow" type="checkbox"><span style="font-size:12px;">画面跟随</span></input>
-<!-- <input id="play" type="button" value="播放" onclick="play();" disabled />
+<input id="play" type="button" value="播放" onclick="play();" disabled />
 <input id="pause" type="button" value="暂停" onclick="pause();" disabled />
-<input id="reset" type="button" value="重置" onclick="reset()" disabled /> -->
-<input id="play" type="button" value="播放" onclick="lushu.start();" disabled />
-<input id="pause" type="button" value="暂停" onclick="LuShu.pause();" disabled />
 <input id="reset" type="button" value="重置" onclick="reset()" disabled />
 </div>
 <div id="container"></div>
